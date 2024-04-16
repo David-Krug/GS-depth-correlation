@@ -12,6 +12,7 @@
 import os
 import torch
 from random import randint
+from datetime import datetime
 from utils.loss_utils import l1_loss, ssim
 from gaussian_renderer import render, network_gui
 import sys
@@ -85,11 +86,17 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         render_pkg = render(viewpoint_cam, gaussians, pipe, bg)
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
+        #image, depth, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["depth"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
 
         # Loss
+        depth_range = 200
         gt_image = viewpoint_cam.original_image.cuda()
+        gt_depth = viewpoint_cam.depth_map.cuda() * depth_range *  255.0 / (2 ** 16)
+
         Ll1 = l1_loss(image, gt_image)
+
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
+
         loss.backward()
 
         iter_end.record()
@@ -137,7 +144,7 @@ def prepare_output_and_logger(args):
             unique_str=os.getenv('OAR_JOB_ID')
         else:
             unique_str = str(uuid.uuid4())
-        args.model_path = os.path.join("./output/", unique_str[0:10])
+        args.model_path = os.path.join("./output/", args.source_path.rsplit('\\', 1)[-1] + "_" + datetime.now().strftime("%d-%m-%Y_%H-%M-%S"))
         
     # Set up output folder
     print("Output folder: {}".format(args.model_path))
