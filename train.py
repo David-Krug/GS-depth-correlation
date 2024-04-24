@@ -85,7 +85,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         bg = torch.rand((3), device="cuda") if opt.random_background else background
 
         render_pkg = render(viewpoint_cam, gaussians, pipe, bg)
-        #image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
         image, depth, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["depth"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
 
         # Loss
@@ -144,7 +143,8 @@ def prepare_output_and_logger(args):
             unique_str=os.getenv('OAR_JOB_ID')
         else:
             unique_str = str(uuid.uuid4())
-        args.model_path = os.path.join("./output/", args.source_path.rsplit('\\', 1)[-1] + "_" + datetime.now().strftime("%d-%m-%Y_%H-%M-%S"))
+        model_name = args.source_path.rsplit('\\', 1)[-1] + "_" + datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+        args.model_path = os.path.join("./output/", model_name)
         
     # Set up output folder
     print("Output folder: {}".format(args.model_path))
@@ -155,7 +155,7 @@ def prepare_output_and_logger(args):
     # Create Tensorboard writer
     tb_writer = None
     if TENSORBOARD_FOUND:
-        tb_writer = SummaryWriter(args.model_path)
+        tb_writer = SummaryWriter("./output/tensorboard_logs/"+model_name)
     else:
         print("Tensorboard not available: not logging progress")
     return tb_writer
