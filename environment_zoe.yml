@@ -20,9 +20,11 @@ dependencies:
   - torchaudio=0.13.1
   - torchvision=0.14.1
   - plyfile=0.8.1
+  - imageio
   - pip:
     - huggingface-hub==0.11.1
     - timm==0.6.12
     - tqdm==4.64.1
     - wandb==0.13.9
     - submodules/simple-knn
+    - open3d
