@@ -48,31 +48,37 @@ def create_colorbar_vis(img, path, name='image', colormap='magma', original_gray
     img = np.squeeze(img)
     img = img.astype(np.float32)
     img = (img - np.min(img)) / (np.max(img) - np.min(img))
+    img_gray = cm.get_cmap('gray')(img)
     img = cm.get_cmap(colormap)(img)
 
     # Make plot
     # fig, axs = plt.subplots(1, 1, figsize=(12, 6))
     h, w = img.shape[:2]
-    fig, axs = plt.subplots(figsize=(w / 100, h / 100), dpi=100)
+    fig, axs = plt.subplots(1,2,figsize=(w / 100, h / 100), dpi=100)
 
-        # Plot grayscale colorbar
+    # Plot grayscale colorbar
     if original_grayscale is not None:
         if isinstance(original_grayscale, torch.Tensor):
             original_grayscale = original_grayscale.cpu().numpy()
         original_grayscale = original_grayscale.squeeze()
         min_val = np.min(original_grayscale)
         max_val = np.max(original_grayscale)
-        gmap = axs.imshow(original_grayscale, cmap="gray", vmin=255-max_val, vmax=255-min_val)
-        axs.set_title('Original adjusted grayscale image')
+        gmap = axs[0].imshow(original_grayscale, cmap="gray", vmin=0, vmax=255)
+        axs[0].set_title('original adjusted grayscale image')
+        axs[0].axis('off')
+        print("min_val, max_val")
+        print(min_val, max_val)
+        cbar = plt.colorbar(gmap,ax=axs[0], shrink=0.5)
+        cbar.set_ticks([min_val, max_val])
+        cbar.set_ticklabels(["", ""])
+        #cbar.set_ticklabels(["original range of grayscale values=" + str(round(min_val,2)) + " - " + str(round(max_val,2)), ""],y = (max_val- min_val) / 2, orientation='vertical')
+        cbar.set_label("original range of grayscale values=" + str(round(min_val,2)) + " - " + str(round(max_val,2)))
 
         # Plot image
 
-        axs.imshow(img)
-        axs.set_title(name)
-        axs.axis('off')
-
-        cbar = plt.colorbar(gmap,ax=axs, shrink=0.5)
-        cbar.set_label('Original grayscale values mapped to full range')
+        axs[1].imshow(img)
+        axs[1].set_title(name)
+        axs[1].axis('off')
 
         # Add colorbar mapping grayscale values to the specified colormap
         norm = Normalize(vmin=0, vmax=255)  # Normalize the color range
@@ -80,15 +86,18 @@ def create_colorbar_vis(img, path, name='image', colormap='magma', original_gray
         sm.set_array([])  # Set an empty array
 
         # Add colorbar
-        cbar = plt.colorbar(sm, ax=axs, shrink=0.5)
+        cbar = plt.colorbar(sm, ax=axs[1], shrink=0.5)
         cbar.set_label('Values mapped to colormap ' + colormap)
     else:
     
         # Plot image
-
-        axs.imshow(img)
-        axs.set_title(name)
-        axs.axis('off')
+        axs[0].imshow(img_gray)
+        axs[0].set_title(name + ' grayscale')
+        axs[0].axis('off')
+    
+        axs[1].imshow(img)
+        axs[1].set_title(name)
+        axs[1].axis('off')
 
         # Add colorbar mapping grayscale values to the specified colormap
         norm = Normalize(vmin=0, vmax=255)  # Normalize the color range
@@ -99,15 +108,14 @@ def create_colorbar_vis(img, path, name='image', colormap='magma', original_gray
         gm.set_array([])  # Set an empty array
 
         # Add colorbar
-        cbar = plt.colorbar(sm, ax=axs, shrink=0.5)
-        cbar.set_label('Values mapped to colormap ' + colormap)
+        cbar = plt.colorbar(sm, ax=axs[1], shrink=0.5)
+        cbar.set_label('values mapped to colormap ' + colormap)
 
-        cbar = plt.colorbar(gm, ax=axs, shrink=0.5)
-        cbar.set_label('Grayscale values')
+        cbar = plt.colorbar(gm, ax=axs[0], shrink=0.5)
+        cbar.set_label('grayscale values')
 
     plt.tight_layout()
 
-    # Convert plot to tensor
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     plt.gca().set_axis_off()
     plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
