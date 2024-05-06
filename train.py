@@ -100,6 +100,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         # depth correlation loss
         Ld = l1_loss(depth, gt_depth)
         loss += opt.lambda_depth * Ld
+        if (iteration % 100 == 0):
+            mem_usage, available_mem = torch.cuda.mem_get_info()
+            print(torch.cuda.is_available())
+            print("Memory usage: {} MB, available: {} MB".format(mem_usage / 1024 / 1024, available_mem / 1024 / 1024))
 
         loss.backward()
 
@@ -115,7 +119,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 progress_bar.close()
 
             # Log and save
-            training_report(tb_writer, iteration, Ll1, Ld, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, render, (pipe, background), depth_range)
+            training_report(tb_writer, iteration, Ll1, Ld, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, render, (pipe, background), depth_range, progress_bar)
             if (iteration in saving_iterations):
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
@@ -165,11 +169,11 @@ def prepare_output_and_logger(args):
         print("Tensorboard not available: not logging progress")
     return tb_writer
 
-def training_report(tb_writer, iteration, Ll1, Ld, loss, l1_loss, elapsed, testing_iterations, scene : Scene, renderFunc, renderArgs, depth_range):
+def training_report(tb_writer, iteration, Ll1, Ld, loss, l1_loss, elapsed, testing_iterations, scene : Scene, renderFunc, renderArgs, depth_range, progress):
     if tb_writer:
-        tb_writer.add_scalar('train_loss_patches/l1_loss', Ll1.item(), iteration)
-        tb_writer.add_scalar('train_loss_patches/depth_loss', Ld.item(), iteration)
-        tb_writer.add_scalar('train_loss_patches/total_loss', loss.item(), iteration)
+        tb_writer.add_scalar('training loss: l1_loss/iterations', Ll1.item(), iteration)
+        tb_writer.add_scalar('training loss: l1_loss/iterations', Ld.item(), iteration)
+        tb_writer.add_scalar('training loss: total_loss/iterations', loss.item(), iteration)
         tb_writer.add_scalar('iter_time', elapsed, iteration)
 
     # Report test and samples of training set
@@ -202,11 +206,11 @@ def training_report(tb_writer, iteration, Ll1, Ld, loss, l1_loss, elapsed, testi
                         if not os.path.exists(os.path.join(scene.model_path, config['name'] + "_view_{}/".format(viewpoint.image_name))):
                             os.makedirs(os.path.join(scene.model_path, config['name'] + "_view_{}/".format(viewpoint.image_name)))
                         #create_colorbar_vis(image, os.path.join(scene.model_path, config['name'] + "_view_{}/render_cbar.png".format(viewpoint.image_name)))
-                        save_image(image, os.path.join(scene.model_path, config['name'] + "_view_{}/render.png".format(viewpoint.image_name)))
+                        save_image(image, os.path.join(scene.model_path, config['name'] + "_view_{}/render".format(viewpoint.image_name) + "_iteration_{}".format(iteration) + ".png"))
                         if iteration == testing_iterations[0]:
                             save_image(gt_image, os.path.join(scene.model_path, config['name'] + "_view_{}/ground_truth.png".format(viewpoint.image_name)))
                         #save_image(depth_color, os.path.join(scene.model_path, config['name'] + "_view_{}/depth.png".format(viewpoint.image_name)))
-                        create_colorbar_vis(depth, os.path.join(scene.model_path, config['name'] + "_view_{}/rendered_depth.png".format(viewpoint.image_name)),"rendered_depth", "plasma")
+                        create_colorbar_vis(depth, os.path.join(scene.model_path, config['name'] + "_view_{}/rendered_depth".format(viewpoint.image_name)  + "_iteration_{}".format(iteration) + ".png"),"rendered_depth", "plasma")
                         if iteration == testing_iterations[0]:
                             create_colorbar_vis(gt_depth, os.path.join(scene.model_path, config['name'] + "_view_{}/ground_truth_depth_cbar.png".format(viewpoint.image_name)),"ground_truth_depth", "plasma", viewpoint.depth_map.to("cuda"))
                             #save_image(gt_depth_color, os.path.join(scene.model_path, config['name'] + "_view_{}/ground_truth_depth.png".format(viewpoint.image_name)))
@@ -215,14 +219,22 @@ def training_report(tb_writer, iteration, Ll1, Ld, loss, l1_loss, elapsed, testi
                 psnr_test /= len(config['cameras'])
                 l1_test /= len(config['cameras'])          
                 print("\n[ITER {}] Evaluating {}: L1 {} PSNR {}".format(iteration, config['name'], l1_test, psnr_test))
+                
                 if tb_writer:
-                    tb_writer.add_scalar(config['name'] + '/loss_viewpoint - l1_loss', l1_test, iteration)
-                    tb_writer.add_scalar(config['name'] + '/loss_viewpoint - psnr', psnr_test, iteration)
+                    tb_writer.add_scalar(config['name'] + ': l1_loss/iterations', l1_test, iteration)
+                    tb_writer.add_scalar(config['name'] + ': psnr/iterations', psnr_test, iteration)
 
         if tb_writer:
             tb_writer.add_histogram("scene/opacity_histogram", scene.gaussians.get_opacity, iteration)
             tb_writer.add_scalar('total_points', scene.gaussians.get_xyz.shape[0], iteration)
         torch.cuda.empty_cache()
+        with open(os.path.join(scene.model_path, "log_{}.txt".format(iteration)), "w") as file:
+            file.write("Iteration: {} \n".format(iteration)
+                       + "Training time: {} min \n".format(progress.format_dict["elapsed"]/60)
+                       + "Image size: {} x {} \n".format(gt_image.shape[2], gt_image.shape[1])
+                       + "L1 loss: {} \n".format(l1_test)
+                       + "PSNR: {} \n".format(psnr_test)
+                       )
 
 if __name__ == "__main__":
     # Set up command line argument parser
