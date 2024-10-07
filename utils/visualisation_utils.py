@@ -49,9 +49,13 @@ if __name__ == "__main__":
 
   intrinsic = cl.read_intrinsics_binary(intrinsic_path)[1]
   intrinsic_matrix = np.eye(4)
+  # fx
   intrinsic_matrix[0, 0] = intrinsic.params[0]
+  # fy
   intrinsic_matrix[1, 1] = intrinsic.params[1]
+  # principal point x
   intrinsic_matrix[0, 2] = intrinsic.params[2]
+  # principal point y
   intrinsic_matrix[1, 2] = intrinsic.params[3]
   print("Intrinsic matrix:")
   print(intrinsic_matrix)
@@ -62,7 +66,12 @@ if __name__ == "__main__":
     depth_map_path = os.path.join(args.dataset_path, "depth_adjusted", "*.png")
 
   final_point_cloud = None
-  for img_path in glob.glob(depth_map_path):
+  idx = 0
+  for img_path in sorted(glob.glob(depth_map_path)):
+    print("Processing", img_path)
+    idx += 1
+    if idx > 1:
+      break
     filename = os.path.basename(img_path)
     depth_map = iio.imread(img_path)
     point_cloud = convert_depth_map_to_point_cloud(depth_map, intrinsic_matrix)
@@ -78,6 +87,7 @@ if __name__ == "__main__":
       o3d.io.write_point_cloud(pcf, pcd)
     print("Point cloud saved as", pcf)
   fpcd = o3d.geometry.PointCloud()
+  print("Final point cloud shape:", final_point_cloud)
   fpcd.points = o3d.utility.Vector3dVector(final_point_cloud)
   if not args.filename:
     fpcf = os.path.join(dataset_path, "pcs_from_adjusted_depth_maps", "combined.ply")
